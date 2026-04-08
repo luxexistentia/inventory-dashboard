@@ -56,10 +56,21 @@ if st.sidebar.button("🔄 최신 데이터 즉시 동기화"):
 
 # --- 5. 그래프 그리기 ---
 st.subheader("📊 1. 현재 재고 현황 (종류/사이즈별)")
+
+# 핵심 로직 추가: X축에 보여줄 이름을 [대분류 - 최종 종류] 형태로 새로 만듭니다.
+current['표시이름'] = current['대분류'] + " - " + current['최종 종류']
+
 fig1 = px.bar(
-    current, x='최종 종류', y='현재재고', color='사이즈', 
-    title=f"현재 재고 ({selected_category})", barmode='stack', text_auto=True
+    current, 
+    x='표시이름', # X축을 단순히 '최종 종류'가 아니라 새로 만든 '표시이름'으로 변경!
+    y='현재재고', 
+    color='사이즈', 
+    title=f"현재 재고 ({selected_category})", 
+    barmode='stack', 
+    text_auto=True
 )
+# X축 글자가 길어지면 겹쳐 보일 수 있으므로 글자를 45도 기울여줍니다.
+fig1.update_layout(xaxis_tickangle=-45) 
 st.plotly_chart(fig1, use_container_width=True)
 
 st.divider()
