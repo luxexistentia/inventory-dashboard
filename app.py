@@ -55,39 +55,83 @@ if st.sidebar.button("🔄 최신 데이터 즉시 동기화"):
     st.rerun()
 
 # --- 5. 그래프 그리기 ---
-st.subheader("📊 1. 현재 재고 현황 (종류/사이즈별)")
 
-# 핵심 로직 추가: X축에 보여줄 이름을 [대분류 - 최종 종류] 형태로 새로 만듭니다.
+# 뷰어 옵션: 사용자가 일별/주별/월별을 선택할 수 있는 버튼 추가
+st.divider()
+time_unit = st.radio("🗓️ 시간 단위 선택 (추이 그래프 및 표 적용):", ["일별", "주별", "월별"], horizontal=True)
+
+# ---------------------------------------------------------
+# [데이터 재가공] 선택한 단위에 맞춰 데이터 묶기
+# ---------------------------------------------------------
+if time_unit == "일별":
+    snap_display = snapshot.copy()
+    sales_display = sales.copy()
+elif time_unit == "주별":
+    # W-MON (월요일 시작 주간): 재고는 해당 주의 마지막 값, 판매량은 합산
+    snap_display = snapshot.groupby([pd.Grouper(key='날짜', freq='W-MON'), 'SKU'])['현재재고'].last().reset_index()
+    sales_display = sales.groupby([pd.Grouper(key='날짜', freq='W-MON'), 'SKU'])['판매량'].sum().reset_index()
+elif time_unit == "월별":
+    # M (월말 기준): 재고는 해당 월의 마지막 값, 판매량은 합산
+    snap_display = snapshot.groupby([pd.Grouper(key='날짜', freq='M'), 'SKU'])['현재재고'].last().reset_index()
+    sales_display = sales.groupby([pd.Grouper(key='날짜', freq='M'), 'SKU'])['판매량'].sum().reset_index()
+
+
+# ---------------------------------------------------------
+# 1. 현재 재고 현황 (그래프 + 표)
+# ---------------------------------------------------------
+st.subheader("📊 1. 현재 재고 현황 (종류/사이즈별)")
 current['표시이름'] = current['대분류'] + " - " + current['최종 종류']
 
-fig1 = px.bar(
-    current, 
-    x='표시이름', # X축을 단순히 '최종 종류'가 아니라 새로 만든 '표시이름'으로 변경!
-    y='현재재고', 
-    color='사이즈', 
-    title=f"현재 재고 ({selected_category})", 
-    barmode='stack', 
-    text_auto=True
-)
-# X축 글자가 길어지면 겹쳐 보일 수 있으므로 글자를 45도 기울여줍니다.
-fig1.update_layout(xaxis_tickangle=-45) 
-st.plotly_chart(fig1, use_container_width=True)
+col1, col2 = st.columns([6, 4]) # 화면을 6:4 비율로 분할
+
+with col1:
+    fig1 = px.bar(
+        current, x='표시이름', y='현재재고', color='사이즈', 
+        title=f"현재 재고 그래프 ({selected_category})", barmode='stack', text_auto=True
+    )
+    fig1.update_layout(xaxis_tickangle=-45) 
+    st.plotly_chart(fig1, use_container_width=True)
+
+with col2:
+    st.write(f"**[현재 재고 상세 표 - {selected_category}]**")
+    # 표에 띄울 때 보기 편하도록 필요한 열만 추려냅니다.
+    current_table = current[['대분류', '최종 종류', '사이즈', '현재재고']].sort_values(by=['대분류', '최종 종류'])
+    st.dataframe(current_table, use_container_width=True, hide_index=True)
+
 
 st.divider()
 
-st.subheader("📈 2. 재고 변화 추이 (일별)")
+# ---------------------------------------------------------
+# 2. 재고 변화 추이 (그래프)
+# ---------------------------------------------------------
+st.subheader(f"📈 2. 재고 변화 추이 ({time_unit})")
 fig2 = px.line(
-    snapshot, x='날짜', y='현재재고', color='SKU', 
-    markers=True, title=f"재고 추이 ({selected_category})"
+    snap_display, x='날짜', y='현재재고', color='SKU', 
+    markers=True, title=f"재고 추이 ({selected_category} - {time_unit})"
 )
 st.plotly_chart(fig2, use_container_width=True)
 
+
 st.divider()
 
-st.subheader("📉 3. 일일 판매량 변화")
-fig3 = px.bar(
-    sales, x='날짜', y='판매량', color='SKU', 
-    title=f"판매량 추이 ({selected_category})", text_auto=True
-)
-fig3.update_layout(xaxis=dict(type='date')) 
-st.plotly_chart(fig3, use_container_width=True)
+# ---------------------------------------------------------
+# 3. 판매량 변화 (그래프 + 표)
+# ---------------------------------------------------------
+st.subheader(f"📉 3. 판매량 변화 ({time_unit})")
+
+col3, col4 = st.columns([6, 4]) # 화면 분할
+
+with col3:
+    fig3 = px.bar(
+        sales_display, x='날짜', y='판매량', color='SKU', 
+        title=f"판매량 그래프 ({selected_category} - {time_unit})", text_auto=True
+    )
+    fig3.update_layout(xaxis=dict(type='date')) 
+    st.plotly_chart(fig3, use_container_width=True)
+
+with col4:
+    st.write(f"**[판매량 상세 표 - {time_unit}]**")
+    sales_table = sales_display.copy()
+    sales_table['날짜'] = sales_table['날짜'].dt.strftime('%Y-%m-%d') # 날짜 형식 깔끔하게 변경
+    sales_table = sales_table.sort_values(by=['날짜', 'SKU'], ascending=[False, True])
+    st.dataframe(sales_table, use_container_width=True, hide_index=True)
