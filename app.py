@@ -72,9 +72,9 @@ elif time_unit == "주별":
     snap_display = snapshot.groupby([pd.Grouper(key='날짜', freq='W-MON'), 'SKU'])['현재재고'].last().reset_index()
     sales_display = sales.groupby([pd.Grouper(key='날짜', freq='W-MON'), 'SKU'])['판매량'].sum().reset_index()
 elif time_unit == "월별":
-    # M (월말 기준): 재고는 해당 월의 마지막 값, 판매량은 합산
-    snap_display = snapshot.groupby([pd.Grouper(key='날짜', freq='M'), 'SKU'])['현재재고'].last().reset_index()
-    sales_display = sales.groupby([pd.Grouper(key='날짜', freq='M'), 'SKU'])['판매량'].sum().reset_index()
+    # ME (Month End 기준): 재고는 해당 월의 마지막 값, 판매량은 합산
+    snap_display = snapshot.groupby([pd.Grouper(key='날짜', freq='ME'), 'SKU'])['현재재고'].last().reset_index()
+    sales_display = sales.groupby([pd.Grouper(key='날짜', freq='ME'), 'SKU'])['판매량'].sum().reset_index()
 
 
 # ---------------------------------------------------------
